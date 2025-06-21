@@ -1,19 +1,16 @@
 import React from 'react';
 import styles from './styles.module.css';
-import PhotoGallery from '../PhotoGallery';
-import { DoctorCalendar } from '../DoctorCalendar';
 import { useParams, Navigate } from 'react-router-dom';
 import { Doctor } from '../../../types';
+import DoctorGallery from '../DoctorGallery';
+import AppointmentCalendar from '../AppointmentCalendar';
 
-interface DoctorProfilePageProps {}
-
-export const DoctorProfilePage: React.FC<DoctorProfilePageProps> = () => {
+export const DoctorProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [doctor, setDoctor] = React.useState<Doctor | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = React.useState(0);
 
-  // Early return if no id is provided
   if (!id) {
     return <Navigate to="/doctors" replace />;
   }
@@ -38,20 +35,25 @@ export const DoctorProfilePage: React.FC<DoctorProfilePageProps> = () => {
   if (!doctor) return <div>Doctor not found</div>;
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.title}>Photo Gallery</h1>
+    <div className={styles.pageWrapper}>
+      <div className={styles.gallerySection}>
       {doctor.photos && doctor.photos.length > 0 && (
-        <PhotoGallery 
+          <DoctorGallery 
           photos={doctor.photos}
           mainPhotoUrl={doctor.photo_url}
           selectedPhotoIndex={selectedPhotoIndex}
           onPhotoSelect={setSelectedPhotoIndex}
         />
       )}
+      </div>
       
+      <div className={styles.contentSection}>
+        <div className={styles.container}>
       <div className={styles.calendarSection}>
-        <h2 className={styles.subtitle}>Schedule an Appointment</h2>
-        <DoctorCalendar doctorId={id} />
+            <h2 className={styles.subtitle}>Записаться на прием</h2>
+            <AppointmentCalendar doctorId={parseInt(id, 10)} />
+          </div>
+        </div>
       </div>
     </div>
   );

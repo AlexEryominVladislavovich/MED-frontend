@@ -3,6 +3,7 @@ import { AppBar, Toolbar, Button, Typography, Box, Grid, Paper, Avatar, Containe
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import MapIcon from '@mui/icons-material/Map';
 import { useNavigate } from 'react-router-dom';
+import { createApiRequest, useLanguage } from '../config/api';
 
 const API_URL = 'http://127.0.0.1:8000';
 
@@ -11,12 +12,12 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const currentLanguage = useLanguage();
 
-  useEffect(() => {
     const fetchDoctors = async () => {
       try {
         console.log('Fetching doctors...');
-        const response = await fetch(`${API_URL}/api/doctors/`);
+      const response = await createApiRequest(`${API_URL}/api/doctors/doctors/`);
         console.log('Response status:', response.status);
         
         if (!response.ok) {
@@ -35,8 +36,9 @@ const HomePage: React.FC = () => {
       }
     };
 
+  useEffect(() => {
     fetchDoctors();
-  }, []);
+  }, [currentLanguage]); // Перезагружаем данные при смене языка
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'linear-gradient(135deg, #e3f0ff 0%, #b3d8f7 100%)' }}>

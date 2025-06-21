@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Box, IconButton, Typography, styled } from '@mui/material';
-import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import { format, addWeeks, subWeeks, startOfWeek, addDays, isSameDay } from 'date-fns';
+import React, { useState } from 'react';
+import { Box, Typography, styled, Button } from '@mui/material';
+import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
+import { format, addWeeks, subWeeks, startOfWeek, addDays, isSameDay, isBefore, startOfDay, parse } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { TimeSlot } from '../../types';
+import { CircularProgress } from '@mui/material';
+import { createApiRequest, useLanguage } from '../../config/api';
 
 // Стилизованные компоненты
 const WeekDayButton = styled(Box)(({ theme }) => ({
@@ -35,11 +37,11 @@ const TimeSlotButton = styled(Box)(({ theme }) => ({
     backgroundColor: theme.palette.primary.light,
     color: theme.palette.primary.contrastText,
   },
-  '&.examination': {
-    borderLeft: `3px solid ${theme.palette.info.main}`,
-  },
   '&.treatment': {
     borderLeft: `3px solid ${theme.palette.warning.main}`,
+  },
+  '&.consultation': {
+    borderLeft: `3px solid ${theme.palette.info.main}`,
   },
 }));
 
@@ -54,18 +56,32 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const currentLanguage = useLanguage();
 
   // Получение временных слотов для выбранной даты
   const fetchTimeSlots = async (date: Date) => {
     setLoading(true);
     try {
-      const formattedDate = format(date, 'yyyy-MM-dd');
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/doctors/${doctorId}/available-slots/?date=${formattedDate}`
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // JavaScript months are 0-based
+      const response = await createApiRequest(
+        `http://127.0.0.1:8000/api/doctors/doctors/${doctorId}/available_slots/?year=${year}&month=${month}`
       );
-      if (!response.ok) throw new Error('Failed to fetch slots');
+      
+      if (!response.ok) {
+        console.error('Server response:', await response.text());
+        throw new Error('Failed to fetch slots');
+      }
+      
       const data = await response.json();
-      setTimeSlots(data);
+      console.log('Received slots:', data);
+      
+      // Фильтруем слоты только для выбранной даты и только доступные
+      const selectedDateStr = format(date, 'yyyy-MM-dd');
+      const filteredSlots = data
+        .filter((slot: TimeSlot) => slot.date === selectedDateStr && slot.is_available === true);
+      
+      setTimeSlots(filteredSlots);
     } catch (error) {
       console.error('Error fetching time slots:', error);
       setTimeSlots([]);
@@ -74,9 +90,29 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
     }
   };
 
+  // Перезагружаем слоты при смене языка
+  React.useEffect(() => {
+    if (selectedDate) {
+      fetchTimeSlots(selectedDate);
+    }
+  }, [currentLanguage]);
+
   // Обработчики навигации по неделям
-  const handlePrevWeek = () => setCurrentWeek(subWeeks(currentWeek, 1));
-  const handleNextWeek = () => setCurrentWeek(addWeeks(currentWeek, 1));
+  const handlePrevWeek = () => {
+    const newWeek = subWeeks(currentWeek, 1);
+    setCurrentWeek(newWeek);
+    if (selectedDate) {
+      handleDateSelect(newWeek);
+    }
+  };
+
+  const handleNextWeek = () => {
+    const newWeek = addWeeks(currentWeek, 1);
+    setCurrentWeek(newWeek);
+    if (selectedDate) {
+      handleDateSelect(newWeek);
+    }
+  };
 
   // Обработчик выбора даты
   const handleDateSelect = (date: Date) => {
@@ -93,75 +129,84 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
   // Форматирование временных слотов для отображения
   const formatTimeSlots = () => {
     return timeSlots.reduce((acc: TimeSlot[][], slot, index) => {
-      const rowIndex = Math.floor(index / 5);
+      const rowIndex = Math.floor(index / 4); // Изменено с 5 на 4 для лучшего отображения
       if (!acc[rowIndex]) acc[rowIndex] = [];
       acc[rowIndex].push(slot);
       return acc;
     }, []);
   };
 
-  // Форматирование времени для отображения
-  const formatTime = (time: string) => {
-    return time.substring(0, 5); // Обрезаем секунды
-  };
-
   return (
-    <Box sx={{ width: '100%', maxWidth: 400, mx: 'auto', p: 2 }}>
-      {/* Заголовок с месяцем и навигацией */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        mb: 2,
-        position: 'relative'
-      }}>
-        <IconButton 
-          onClick={handlePrevWeek}
-          sx={{ position: 'absolute', left: 0, padding: '4px' }}
-          size="small"
-        >
-          <ChevronLeft fontSize="small" />
-        </IconButton>
-        
-        <Typography variant="subtitle1" sx={{ textTransform: 'capitalize' }}>
-          {format(currentWeek, 'LLLL', { locale: ru })}
+    <Box sx={{ mt: 4 }}>
+      <Typography variant="h6" gutterBottom>
+        Выберите удобное время
         </Typography>
 
-        <IconButton 
-          onClick={handleNextWeek}
-          sx={{ position: 'absolute', right: 0, padding: '4px' }}
-          size="small"
-        >
-          <ChevronRight fontSize="small" />
-        </IconButton>
+      {/* Навигация по неделям */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <Button onClick={handlePrevWeek} startIcon={<ArrowBackIos />}>
+          Предыдущая неделя
+        </Button>
+        <Button onClick={handleNextWeek} endIcon={<ArrowForwardIos />}>
+          Следующая неделя
+        </Button>
       </Box>
 
-      {/* Дни недели */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        mb: 2,
-        gap: 0.5
-      }}>
-        {getWeekDays().map((date) => (
-          <WeekDayButton
+      {/* Календарь */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+        {getWeekDays().map((date) => {
+          const isToday = isSameDay(date, new Date());
+          const isSelected = selectedDate && isSameDay(date, selectedDate);
+          const isDisabled = isBefore(date, startOfDay(new Date()));
+
+          return (
+            <Button
             key={date.toISOString()}
-            onClick={() => handleDateSelect(date)}
-            className={selectedDate && isSameDay(date, selectedDate) ? 'selected' : ''}
-          >
-            <Typography variant="caption" sx={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
+              onClick={() => !isDisabled && handleDateSelect(date)}
+              variant={isSelected ? 'contained' : 'outlined'}
+              disabled={isDisabled}
+              sx={{
+                minWidth: '100px',
+                p: 1,
+                borderColor: isToday ? 'primary.main' : 'grey.300',
+                backgroundColor: isSelected ? 'primary.main' : 'transparent',
+                '&:hover': {
+                  backgroundColor: isSelected ? 'primary.dark' : 'grey.100',
+                },
+              }}
+            >
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="caption" display="block">
               {format(date, 'EEEEEE', { locale: ru })}
             </Typography>
-            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-              {format(date, 'd')}
+                <Typography variant="h6">
+                  {format(date, 'd', { locale: ru })}
+                </Typography>
+                <Typography variant="caption" display="block">
+                  {format(date, 'MMM', { locale: ru })}
             </Typography>
-          </WeekDayButton>
-        ))}
+              </Box>
+            </Button>
+          );
+        })}
       </Box>
 
+      {/* Индикатор загрузки */}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
       {/* Временные слоты */}
+      {!loading && selectedDate && (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {formatTimeSlots().map((row, rowIndex) => (
+          {timeSlots.length === 0 ? (
+            <Typography variant="body1" textAlign="center" color="text.secondary">
+              На выбранную дату нет доступных слотов
+            </Typography>
+          ) : (
+            formatTimeSlots().map((row, rowIndex) => (
           <Box 
             key={rowIndex} 
             sx={{ 
@@ -175,50 +220,30 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
                 key={slot.id}
                 onClick={() => onSlotSelect(slot)}
                 className={slot.slot_type}
-                sx={{
-                  opacity: slot.is_available ? 1 : 0.5,
-                  pointerEvents: slot.is_available ? 'auto' : 'none',
-                }}
               >
                 <Typography variant="body2">
-                  {formatTime(slot.start_time)}
+                      {format(parse(slot.start_time, 'HH:mm:ss', new Date()), 'HH:mm')}
                 </Typography>
                 <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                  {slot.duration} мин
+                      {slot.slot_type === 'treatment' ? '40 мин' : '15 мин'}
                 </Typography>
               </TimeSlotButton>
             ))}
           </Box>
-        ))}
+            ))
+          )}
       </Box>
+      )}
 
       {/* Легенда */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: 3, 
-        mt: 4,
-        pt: 2,
-        borderTop: '1px solid',
-        borderColor: 'divider'
-      }}>
+      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', gap: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ 
-            width: 12, 
-            height: 12, 
-            backgroundColor: 'info.main', 
-            borderRadius: 1 
-          }} />
-          <Typography variant="caption">Обследование</Typography>
+          <Box sx={{ width: 16, height: 16, bgcolor: 'info.light', borderRadius: 1 }} />
+          <Typography variant="body2">Консультация (15 мин)</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ 
-            width: 12, 
-            height: 12, 
-            backgroundColor: 'warning.main',
-            borderRadius: 1
-          }} />
-          <Typography variant="caption">Лечение</Typography>
+          <Box sx={{ width: 16, height: 16, bgcolor: 'warning.light', borderRadius: 1 }} />
+          <Typography variant="body2">Лечение (40 мин)</Typography>
         </Box>
       </Box>
     </Box>

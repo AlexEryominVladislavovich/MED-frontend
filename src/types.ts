@@ -21,12 +21,12 @@ export interface DoctorPhoto {
 export interface Doctor {
     id: number;
     user: User;
-    patronymic: string;
-    room_number: string;
-    bio: string;
-    phone_number: string;
     specialization: Specialization[];
     photo_url: string;
+    bio: string;
+    room_number: string;
+    phone_number: string;
+    patronymic: string;
     photos: DoctorPhoto[];
     is_active: boolean;
 }
@@ -34,12 +34,13 @@ export interface Doctor {
 export interface TimeSlot {
     id: number;
     doctor: number;
-    template?: number;
     date: string;
     start_time: string;
+    end_time: string;
     duration: number;
-    slot_type: 'examination' | 'treatment';
+    slot_type: 'consultation' | 'treatment';
+    slot_type_display: string;
     is_available: boolean;
-    created_at: string;
-    updated_at: string;
+    created_at?: string;
+    updated_at?: string;
 } 

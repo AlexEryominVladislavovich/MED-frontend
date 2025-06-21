@@ -21,6 +21,10 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
+import TimeSlotSelector from '../components/doctor/TimeSlotSelector';
+import { TimeSlot } from '../types';
+
+const API_URL = 'http://127.0.0.1:8000';
 
 const DoctorProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,19 +39,37 @@ const DoctorProfilePage: React.FC = () => {
   });
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/doctors/doctors/${id}/`)
-      .then(res => {
-        if (!res.ok) throw new Error('Врач не найден');
-        return res.json();
-      })
-      .then(data => {
+    const fetchDoctor = async () => {
+      try {
+        const url = `${API_URL}/api/doctors/doctors/${id}/`;
+        console.log('Fetching doctor from URL:', url);
+        const response = await fetch(url);
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Received doctor data:', data);
+        
         setDoctor(data);
         setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
+      } catch (err) {
+        console.error('Error fetching doctor:', err);
+        setError(err instanceof Error ? err.message : 'Ошибка при загрузке данных врача');
         setLoading(false);
-      });
+      }
+    };
+
+    if (id) {
+      console.log('Starting to fetch doctor data for ID:', id);
+      fetchDoctor();
+    } else {
+      console.error('No doctor ID provided');
+      setError('ID врача не указан');
+      setLoading(false);
+    }
   }, [id]);
 
   const handleBookAppointment = () => {
@@ -64,6 +86,11 @@ const DoctorProfilePage: React.FC = () => {
     // Здесь будет логика авторизации
     setAuthDialogOpen(false);
     navigate(`/doctor/${id}/slots`);
+  };
+
+  const handleSlotSelect = (slot: TimeSlot) => {
+    // TODO: Implement appointment creation
+    console.log('Selected slot:', slot);
   };
 
   if (loading) {
@@ -122,7 +149,7 @@ const DoctorProfilePage: React.FC = () => {
 
           {/* Правая колонка - детальная информация */}
           <Grid item xs={12} md={8}>
-            <Paper elevation={3} sx={{ p: 3, borderRadius: 4, bgcolor: 'white' }}>
+            <Paper elevation={3} sx={{ p: 3, borderRadius: 4, bgcolor: 'white', mb: 4 }}>
               <Typography variant="h6" fontWeight={700} gutterBottom>
                 О враче
               </Typography>
@@ -174,6 +201,17 @@ const DoctorProfilePage: React.FC = () => {
                   />
                 ))}
               </Box>
+            </Paper>
+
+            {/* Добавляем TimeSlotSelector */}
+            <Paper elevation={3} sx={{ p: 3, borderRadius: 4, bgcolor: 'white' }}>
+              <Typography variant="h6" fontWeight={700} gutterBottom>
+                Доступное время для записи
+              </Typography>
+              <TimeSlotSelector
+                doctorId={doctor.id}
+                onSlotSelect={handleSlotSelect}
+              />
             </Paper>
           </Grid>
         </Grid>

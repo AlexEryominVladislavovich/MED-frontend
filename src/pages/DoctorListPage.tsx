@@ -8,7 +8,7 @@ const DoctorListPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/doctors/')
+    fetch('http://127.0.0.1:8000/api/doctors/doctors/')
       .then(res => {
         if (!res.ok) {
           throw new Error('Failed to fetch doctors');
@@ -56,9 +56,10 @@ const DoctorListPage: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
+                height: '100%',
                 minHeight: 260,
               }}>
-                <DoctorCard doctor={doctor} compact />
+                <DoctorCard doctor={doctor} />
               </Box>
             </Grid>
           ))}

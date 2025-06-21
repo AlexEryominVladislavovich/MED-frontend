@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Container, CircularProgress, Alert } from '@mui/material';
-import DoctorInfo from '../components/doctor/DoctorInfo';
-import PhotoGallery from '../components/doctor/PhotoGallery';
-import TimeSlotSelector from '../components/doctor/TimeSlotSelector';
-import DoctorMainPhoto from '../components/doctor/DoctorMainPhoto';
-import { Doctor, TimeSlot } from '../types';
+import { Box, Container, CircularProgress, Alert, Typography, Grid } from '@mui/material';
+import { Doctor } from '../types';
+import AppointmentCalendar from '../components/doctor/AppointmentCalendar';
+import DoctorProfile from '../components/doctor/DoctorProfile';
+import { createApiRequest, useLanguage } from '../config/api';
 
 const API_URL = 'http://127.0.0.1:8000';
 
@@ -14,57 +13,41 @@ const DoctorDetailPage: React.FC = () => {
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const currentLanguage = useLanguage();
 
-  useEffect(() => {
     const fetchDoctor = async () => {
       try {
-        console.log('Fetching doctor with ID:', id);
-        const response = await fetch(`${API_URL}/api/doctors/${id}/detail/`);
-        console.log('Response:', response);
-        console.log('Response status:', response.status);
-        
+        if (!id) {
+          throw new Error('ID врача не указан');
+        }
+      const response = await createApiRequest(`${API_URL}/api/doctors/doctors/${id}/`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         const data = await response.json();
-        console.log('Received doctor data:', data);
-        console.log('Doctor photos:', data.photos);
-        
         setDoctor(data);
-        setLoading(false);
       } catch (err) {
-        console.error('Error fetching doctor:', err);
         setError(err instanceof Error ? err.message : 'Ошибка при загрузке данных врача');
+      } finally {
         setLoading(false);
       }
     };
 
+  useEffect(() => {
     if (id) {
-      console.log('Starting to fetch doctor data...');
       fetchDoctor();
-    } else {
-      console.error('No doctor ID provided');
-      setError('ID врача не указан');
-      setLoading(false);
     }
-  }, [id]);
-
-  const handleSlotSelect = (slot: TimeSlot) => {
-    // TODO: Implement appointment creation
-    console.log('Selected slot:', slot);
-  };
+  }, [id, currentLanguage]); // Перезагружаем данные при смене языка
 
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#1976d2' }} />
       </Box>
     );
   }
 
-  if (error || !doctor) {
+  if (error || !doctor || !id) {
     return (
       <Container>
         <Alert severity="error" sx={{ mt: 4 }}>
@@ -76,25 +59,21 @@ const DoctorDetailPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <DoctorMainPhoto 
-        doctor={doctor} 
-        selectedPhotoIndex={selectedPhotoIndex}
-        onPhotoChange={setSelectedPhotoIndex}
-      />
-      {doctor.photos && doctor.photos.length > 0 && (
-        <PhotoGallery 
-          photos={doctor.photos}
-          mainPhotoUrl={doctor.photo_url}
-          selectedPhotoIndex={selectedPhotoIndex}
-          onPhotoSelect={setSelectedPhotoIndex}
-        />
-      )}
-      <Box sx={{ mt: 4 }}>
-        <TimeSlotSelector
-          doctorId={doctor.id}
-          onSlotSelect={handleSlotSelect}
-        />
-      </Box>
+      <Grid container spacing={0}>
+        <Grid item xs={12}>
+          <DoctorProfile
+            doctor={doctor}
+            photos={doctor.photos}
+          />
+        </Grid>
+
+        <Grid item xs={12} sx={{ mt: 4 }}>
+          <Typography variant="h5" sx={{ mb: 3, fontWeight: 500 }}>
+            Записаться на прием
+          </Typography>
+          <AppointmentCalendar doctorId={parseInt(id, 10)} />
+        </Grid>
+      </Grid>
     </Container>
   );
 };
