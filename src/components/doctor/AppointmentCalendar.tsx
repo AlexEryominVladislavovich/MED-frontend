@@ -136,7 +136,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ doctorId }) =
     }
   };
 
-  // Фильтрация слотов для выбранной даты
+  // Получение слотов для выбранной даты
   const getDateSlots = (date: Date) => {
     if (!selectedDate) return [];
     const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -145,16 +145,18 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ doctorId }) =
       date.getFullYear() === now.getFullYear() &&
       date.getMonth() === now.getMonth() &&
       date.getDate() === now.getDate();
+    
+    // Возвращаем все слоты для выбранной даты, включая недоступные
     return availableSlots.filter(slot => {
-      if (slot.date !== formattedDate || !slot.is_available) return false;
-      if (isToday) {
-        // Фильтруем только по времени для сегодняшней даты
+      if (slot.date !== formattedDate) return false;
+      if (isToday && slot.is_available) {
+        // Для сегодняшней даты фильтруем только доступные слоты по времени
         const [hours, minutes] = slot.start_time.split(':');
         const slotDate = new Date(slot.date);
         slotDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         return slotDate > now;
       }
-      return true;
+      return true; // Показываем все слоты, включая недоступные
     });
   };
 
@@ -361,25 +363,53 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ doctorId }) =
               {getDateSlots(selectedDate).map((slot) => (
                 <Button
                   key={slot.id}
-                  onClick={() => handleSlotClick(slot)}
+                  onClick={() => slot.is_available && handleSlotClick(slot)}
                   variant="outlined"
+                  disabled={!slot.is_available}
                   sx={{
                     py: 0.75,
-                    backgroundColor: '#fff',
-                    color: slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800',
-                    borderColor: slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800',
+                    backgroundColor: slot.is_available ? '#fff' : '#f5f5f5',
+                    color: slot.is_available 
+                      ? (slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800')
+                      : '#999',
+                    borderColor: slot.is_available 
+                      ? (slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800')
+                      : '#ddd',
                     borderRadius: '8px',
                     fontSize: '0.9rem',
                     minWidth: 0,
+                    opacity: slot.is_available ? 1 : 0.6,
+                    cursor: slot.is_available ? 'pointer' : 'not-allowed',
                     '&:hover': {
-                      backgroundColor: slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800',
-                      color: '#fff',
-                      borderColor: slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800'
+                      backgroundColor: slot.is_available 
+                        ? (slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800')
+                        : '#f5f5f5',
+                      color: slot.is_available ? '#fff' : '#999',
+                      borderColor: slot.is_available 
+                        ? (slot.slot_type === 'consultation' ? '#2196f3' : '#ff9800')
+                        : '#ddd'
                     },
-                    boxShadow: '0 2px 4px rgba(25,118,210,0.1)'
+                    boxShadow: slot.is_available ? '0 2px 4px rgba(25,118,210,0.1)' : 'none'
                   }}
                 >
-                  {formatTime(slot.start_time)}
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="body2">
+                      {formatTime(slot.start_time)}
+                    </Typography>
+                    {!slot.is_available && (
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          display: 'block',
+                          color: 'error.main',
+                          fontSize: '0.7rem',
+                          mt: 0.5
+                        }}
+                      >
+                        Занят
+                      </Typography>
+                    )}
+                  </Box>
                 </Button>
               ))}
               {getDateSlots(selectedDate).length === 0 && (
@@ -391,7 +421,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ doctorId }) =
                     py: 2
                   }}
                 >
-                  Нет доступных слотов на выбранную дату
+                  Нет слотов на выбранную дату
                 </Typography>
               )}
             </>

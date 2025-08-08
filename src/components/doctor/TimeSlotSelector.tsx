@@ -26,16 +26,17 @@ const WeekDayButton = styled(Box)(({ theme }) => ({
   },
 }));
 
-const TimeSlotButton = styled(Box)(({ theme }) => ({
+const TimeSlotButton = styled(Box)<{ isAvailable: boolean }>(({ theme, isAvailable }) => ({
   padding: '8px 16px',
-  backgroundColor: theme.palette.grey[50],
+  backgroundColor: isAvailable ? theme.palette.grey[50] : theme.palette.grey[200],
   borderRadius: '20px',
-  cursor: 'pointer',
+  cursor: isAvailable ? 'pointer' : 'not-allowed',
   transition: 'all 0.2s ease',
   textAlign: 'center',
+  opacity: isAvailable ? 1 : 0.6,
   '&:hover': {
-    backgroundColor: theme.palette.primary.light,
-    color: theme.palette.primary.contrastText,
+    backgroundColor: isAvailable ? theme.palette.primary.light : theme.palette.grey[200],
+    color: isAvailable ? theme.palette.primary.contrastText : theme.palette.text.disabled,
   },
   '&.treatment': {
     borderLeft: `3px solid ${theme.palette.warning.main}`,
@@ -76,10 +77,9 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
       const data = await response.json();
       console.log('Received slots:', data);
       
-      // Фильтруем слоты только для выбранной даты и только доступные
+      // Фильтруем слоты только для выбранной даты (все слоты, включая недоступные)
       const selectedDateStr = format(date, 'yyyy-MM-dd');
-      const filteredSlots = data
-        .filter((slot: TimeSlot) => slot.date === selectedDateStr && slot.is_available === true);
+      const filteredSlots = data.filter((slot: TimeSlot) => slot.date === selectedDateStr);
       
       setTimeSlots(filteredSlots);
     } catch (error) {
@@ -218,15 +218,40 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
             {row.map((slot) => (
               <TimeSlotButton
                 key={slot.id}
-                onClick={() => onSlotSelect(slot)}
+                onClick={() => slot.is_available && onSlotSelect(slot)}
                 className={slot.slot_type}
+                isAvailable={slot.is_available}
               >
-                <Typography variant="body2">
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: slot.is_available ? 'text.primary' : 'text.disabled' 
+                  }}
+                >
                       {format(parse(slot.start_time, 'HH:mm:ss', new Date()), 'HH:mm')}
                 </Typography>
-                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    display: 'block', 
+                    color: slot.is_available ? 'text.secondary' : 'text.disabled' 
+                  }}
+                >
                       {slot.slot_type === 'treatment' ? '40 мин' : '15 мин'}
                 </Typography>
+                {!slot.is_available && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      display: 'block', 
+                      color: 'error.main',
+                      fontSize: '0.7rem',
+                      mt: 0.5
+                    }}
+                  >
+                    Занят
+                  </Typography>
+                )}
               </TimeSlotButton>
             ))}
           </Box>
@@ -236,7 +261,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
       )}
 
       {/* Легенда */}
-      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', gap: 4 }}>
+      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ width: 16, height: 16, bgcolor: 'info.light', borderRadius: 1 }} />
           <Typography variant="body2">Консультация (15 мин)</Typography>
@@ -244,6 +269,10 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({ doctorId, onSlotSel
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ width: 16, height: 16, bgcolor: 'warning.light', borderRadius: 1 }} />
           <Typography variant="body2">Лечение (40 мин)</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 16, height: 16, bgcolor: 'grey.200', borderRadius: 1, opacity: 0.6 }} />
+          <Typography variant="body2" color="text.disabled">Занято</Typography>
         </Box>
       </Box>
     </Box>
